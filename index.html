@@ -12,13 +12,11 @@
     margin: 0;
     padding: 0;
   }
-
   header {
     background: #222;
     padding: 10px;
     text-align: center;
   }
-
   header h1 {
     margin: 0;
     font-size: 1.5rem;
@@ -28,13 +26,11 @@
     gap: 10px;
     color: #FFD700;
   }
-
   .header-logo {
     width: 40px;
     height: 40px;
     object-fit: contain;
   }
-
   #searchInput {
     width: 90%;
     max-width: 400px;
@@ -44,20 +40,19 @@
     border-radius: 5px;
     font-size: 1rem;
   }
-
   .category-bar {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
     gap: 8px;
     padding: 10px;
     background: #222;
-    overflow-x: visible;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
-
   .category-btn {
-    flex: 0 1 auto;
-    white-space: normal;
+    flex: 0 0 auto;
+    white-space: nowrap;
     text-align: center;
     background: #444;
     color: white;
@@ -69,14 +64,12 @@
     transition: all 0.3s;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   }
-
   .category-btn.active {
     background: #ff5722;
     color: #fff;
     transform: scale(1.05);
     box-shadow: 0 4px 8px rgba(255,87,34,0.6);
   }
-
   #notice {
     text-align: center;
     background: #ffcc00;
@@ -87,12 +80,7 @@
     margin: 10px auto;
     max-width: 95%;
   }
-  #notice a {
-    color: #000;
-    text-decoration: underline;
-    margin: 0 5px;
-  }
-
+  #notice a { color: #000; text-decoration: underline; margin: 0 5px; }
   h2.category-title {
     background: #2a2a2a;
     padding: 10px;
@@ -101,13 +89,7 @@
     text-transform: capitalize;
     border-top: 2px solid #444;
   }
-
-  ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
+  ul { list-style: none; padding: 0; margin: 0; }
   li {
     display: flex;
     justify-content: space-between;
@@ -117,18 +99,13 @@
     border-bottom: 1px solid #333;
     transition: background 0.3s;
   }
-
-  li:hover {
-    background: #2a2a2a;
-  }
-
+  li:hover { background: #2a2a2a; }
   .channel-info {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
   }
-
   .channel-info img.logo {
     width: 80px;
     height: auto;
@@ -136,23 +113,17 @@
     object-fit: contain;
     background: #000;
   }
-
   .channel-info a {
     color: #fff;
     text-decoration: none;
     font-size: 1rem;
   }
-
-  .channel-info a:hover {
-    text-decoration: underline;
-  }
-
+  .channel-info a:hover { text-decoration: underline; }
   .channel-actions {
     display: flex;
     align-items: center;
     gap: 10px;
   }
-
   .play-btn {
     background: #ff5722;
     color: #fff;
@@ -163,11 +134,7 @@
     font-size: 0.9rem;
     transition: background 0.3s;
   }
-
-  .play-btn:hover {
-    background: #e64a19;
-  }
-
+  .play-btn:hover { background: #e64a19; }
   .favorite-btn {
     background: none;
     border: none;
@@ -176,29 +143,13 @@
     cursor: pointer;
     transition: color 0.3s;
   }
-
-  .favorite-btn.active {
-    color: #ffcc00;
-  }
-
+  .favorite-btn.active { color: #ffcc00; }
   @media (max-width: 600px) {
-    .channel-info img.logo {
-      width: 60px;
-    }
-    .channel-info a {
-      font-size: 0.9rem;
-    }
-    .category-btn {
-      font-size: 0.85rem;
-      padding: 6px 12px;
-    }
-    .header-logo {
-      width: 30px;
-      height: 30px;
-    }
-    header h1 {
-      font-size: 1.2rem;
-    }
+    .channel-info img.logo { width: 60px; }
+    .channel-info a { font-size: 0.9rem; }
+    .category-btn { font-size: 0.85rem; padding: 6px 12px; }
+    .header-logo { width: 30px; height: 30px; }
+    header h1 { font-size: 1.2rem; }
   }
 </style>
 </head>
@@ -206,8 +157,7 @@
 
 <header>
   <h1>
-    <img src="https://i.ibb.co/LzGF321b/vec-ace.jpg" 
-         alt="Logo" class="header-logo">
+    <img src="https://i.ibb.co/LzGF321b/vec-ace.jpg" alt="Logo" class="header-logo">
     SUPERVECTAR AceStream TV
   </h1>
   <input type="text" id="searchInput" placeholder="🔍 Buscar canal...">
@@ -227,7 +177,9 @@
 <div id="channelContainer"></div>
 
 <script>
-const LISTA_URL = "https://raw.githubusercontent.com/supervectar-coder/listaaACEtv/refs/heads/main/lista%20SUPERVECTAR%20ACESTREAM%20TV.m3u";
+const ORIGINAL_LISTA_URL = "https://raw.githubusercontent.com/supervectar-coder/listaaACEtv/refs/heads/main/lista%20SUPERVECTAR%20ACESTREAM%20TV.m3u";
+const LISTA_URL = "https://corsproxy.io/?" + encodeURIComponent(ORIGINAL_LISTA_URL);
+
 const channelContainer = document.getElementById('channelContainer');
 const searchInput = document.getElementById('searchInput');
 const categoryBar = document.getElementById('categoryBar');
@@ -237,46 +189,59 @@ let categories = new Set();
 let activeCategory = 'all';
 
 // ------------------ CARGAR LISTA --------------------
-fetch(LISTA_URL)
-.then(res => {
-  if(!res.ok) throw new Error(`Error HTTP ${res.status}`);
-  return res.text();
-})
-.then(text => {
-  const lines = text.split('\n');
-  for(let i=0;i<lines.length;i++){
-    const line = lines[i].trim();
-    if(line.startsWith('#EXTINF')){
-      const info = line.substring(8);
-      const parts = info.split(',');
-      const channelName = parts.length>1 ? parts[1].trim() : parts[0].trim();
+async function cargarLista() {
+  const notice = document.getElementById('notice');
+  notice.style.display = 'block';
+  notice.innerHTML = '⏳ Cargando lista de canales...';
+  notice.style.background = '#ffcc00';
+  notice.style.color = '#000';
 
-      let logoUrl = '';
-      let category = 'otros';
-      const attrs = parts[0].split(' ');
-      attrs.forEach(attr=>{
-        if(attr.startsWith('tvg-logo=')) logoUrl = attr.split('=')[1].replace(/"/g,'');
-        if(attr.startsWith('group-title=')) category = attr.split('=')[1].replace(/"/g,'');
-      });
+  try {
+    const res = await fetch(LISTA_URL);
+    if (!res.ok) throw new Error(`Error HTTP ${res.status}`);
+    const text = await res.text();
 
-      const url = lines[++i]?.trim();
-      if(url){
-        channels.push({name:channelName, logo:logoUrl, category, url});
-        categories.add(category);
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('#EXTINF')) {
+        const info = line.substring(8);
+        const parts = info.split(',');
+        const channelName = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+
+        let logoUrl = '';
+        let category = 'otros';
+        const attrs = parts[0].split(' ');
+        attrs.forEach(attr => {
+          if (attr.startsWith('tvg-logo=')) logoUrl = attr.split('=')[1].replace(/"/g, '');
+          if (attr.startsWith('group-title=')) category = attr.split('=')[1].replace(/"/g, '');
+        });
+
+        let url = lines[++i]?.trim();
+        if (url) {
+          if (url.startsWith('http://')) url = url.replace('http://', 'https://');
+          channels.push({ name: channelName, logo: logoUrl, category, url });
+          categories.add(category);
+        }
       }
     }
+
+    notice.style.display = 'none';
+    renderCategories();
+    renderChannels();
+
+  } catch (error) {
+    console.error(error);
+    notice.style.display = 'block';
+    notice.style.background = '#b71c1c';
+    notice.style.color = '#fff';
+    notice.innerHTML = `
+      ⚠️ No se pudo cargar la lista IPTV.<br>
+      Esto puede ser por falta de conexión o bloqueo CORS en Android TV.<br>
+      <a href="${ORIGINAL_LISTA_URL}" target="_blank" style="color:#fff;text-decoration:underline;">Abrir lista directamente</a>
+    `;
   }
-  renderCategories();
-  renderChannels();
-})
-.catch(error=>{
-  console.error(error);
-  const notice = document.getElementById('notice');
-  notice.style.display='block';
-  notice.style.background='#b71c1c';
-  notice.style.color='#fff';
-  notice.innerHTML='⚠️ No se pudo cargar la lista IPTV. Revisa la conexión o URL.';
-});
+}
 
 // ------------------ CATEGORÍAS --------------------
 function renderCategories(){
@@ -325,6 +290,11 @@ function renderChannels(){
   });
 
   let sortedCategories = Object.keys(grouped).sort((a,b)=>a.localeCompare(b));
+  if(sortedCategories.length===0){
+    channelContainer.innerHTML='<p style="text-align:center; padding:20px;">🔍 No se encontraron canales.</p>';
+    return;
+  }
+
   sortedCategories.forEach(cat=>{
     const h2 = document.createElement('h2');
     h2.className='category-title';
@@ -332,9 +302,6 @@ function renderChannels(){
     channelContainer.appendChild(h2);
 
     const ul = document.createElement('ul');
-    // ❌ Eliminado el sort para mantener orden original de la M3U
-    // grouped[cat].sort((a,b)=>a.name.localeCompare(b.name));
-
     grouped[cat].forEach(c=>{
       const li=document.createElement('li');
       li.innerHTML=`
@@ -349,12 +316,12 @@ function renderChannels(){
       `;
       li.querySelector('.play-btn').addEventListener('click',()=>{
         if(c.url.startsWith('acestream://')) window.location.href=c.url;
-        else window.open(c.url,'_blank');
+        else window.open(c.url,'_blank','noopener');
       });
       li.querySelector('a').addEventListener('click',e=>{
         e.preventDefault();
         if(c.url.startsWith('acestream://')) window.location.href=c.url;
-        else window.open(c.url,'_blank');
+        else window.open(c.url,'_blank','noopener');
       });
       li.querySelector('.favorite-btn').addEventListener('click',e=>{
         const btn=e.currentTarget;
@@ -373,6 +340,8 @@ function renderChannels(){
 }
 
 searchInput.addEventListener('input', renderChannels);
+
+cargarLista();
 </script>
 </body>
 </html>
