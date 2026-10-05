@@ -218,7 +218,7 @@ li:hover{
 
 <h1>
 <img src="https://i.ibb.co/7dGjZb80/6.jpg" class="header-logo">
-SUPERVECTAR AceStream DEPORTES NEWERA (03/10/2026)
+SUPERVECTAR AceStream DEPORTES NEWERA
 </h1>
 
 <input type="text" id="searchInput" placeholder="🔍 Buscar canal...">
@@ -242,11 +242,12 @@ SUPERVECTAR AceStream DEPORTES NEWERA (03/10/2026)
 
 <div id="channelContainer"></div>
 
+<script src="https://unpkg.com/@helia/verified-fetch@8.1.2/dist/index.min.js"></script>
+
 <script>
 
 const LISTA_URLS = [
-
-  "https://raw.githubusercontent.com/supervectar-coder/NEWERA/refs/heads/main/lista_fuera_iptv%20(1).m3u"
+  "ipns://k2k4r8lm8tkmuxbc8lkmq1in3v0oya1p6pe9o5bu0hu30br5ko08k2gb/data/listas/lista_fuera_iptv.m3u"
 ];
 
 const EPG_URLS = [
@@ -335,7 +336,6 @@ function showMessage(message, type="error"){
 }
 
 function parseM3U(text){
-  // Elimina BOM y normaliza saltos de línea
   text = text.replace(/^\uFEFF/, "").replace(/\r/g, "");
 
   const lines = text
@@ -345,6 +345,7 @@ function parseM3U(text){
 
   const result = [];
 
+  // Standard M3U / EXTINF
   for(let i=0; i<lines.length; i++){
     const line = lines[i];
 
@@ -379,7 +380,6 @@ function parseM3U(text){
       });
     }
 
-    // Busca la primera línea que no sea otro metadato M3U.
     let url = "";
     for(let j=i+1; j<lines.length; j++){
       if(!lines[j].startsWith("#")){
@@ -390,46 +390,86 @@ function parseM3U(text){
     }
 
     if(url){
-      result.push({
-        name,
-        logo,
-        category,
-        url,
-        tvgId
-      });
+      result.push({name, logo, category, url, tvgId});
+    }
+  }
+
+  // Fallback: plain AceStream hash list.
+  // If no EXTINF channels were found, every 40-hex-character hash
+  // becomes an AceStream channel.
+  if(result.length === 0){
+    const seen = new Set();
+
+    for(const raw of lines){
+      const value = raw.replace(/^acestream:\/\//i, "").trim();
+
+      if(/^[a-f0-9]{40}$/i.test(value) && !seen.has(value.toLowerCase())){
+        seen.add(value.toLowerCase());
+
+        result.push({
+          name: `AceStream ${value.substring(0,8)}…`,
+          logo: "",
+          category: "AceStream",
+          url: `acestream://${value}`,
+          tvgId: ""
+        });
+      }
     }
   }
 
   return result;
 }
 
-async function fetchWithTimeout(url, timeoutMs=15000){
+async function fetchWithTimeout(url, timeoutMs=30000){
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try{
-    const response = await fetch(url, {
-      method: "GET",
-      cache: "no-store",
-      mode: "cors",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: {
-        "Accept": "application/x-mpegURL, audio/mpegurl, text/plain, */*"
+    let response;
+
+    // IPNS/IPFS: usar verified-fetch, no fetch() contra un gateway HTTP.
+    // Así el navegador recupera el contenido desde IPFS y verifica los bytes.
+    if(url.startsWith("ipns://") || url.startsWith("ipfs://")){
+      if(!window.HeliaVerifiedFetch ||
+         typeof window.HeliaVerifiedFetch.verifiedFetch !== "function"){
+        throw new Error("No se ha podido cargar @helia/verified-fetch");
       }
-    });
+
+      response = await window.HeliaVerifiedFetch.verifiedFetch(url, {
+        signal: controller.signal,
+        headers: {
+          "accept": "text/plain, application/x-mpegURL, audio/mpegurl, */*"
+        }
+      });
+    }else{
+      // Fallback local para hashes_acestream.m3u si existe en GitHub Pages.
+      response = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+        signal: controller.signal,
+        headers: {
+          "Accept": "application/x-mpegURL, audio/mpegurl, text/plain, */*"
+        }
+      });
+    }
 
     if(!response.ok){
-      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      throw new Error(`HTTP ${response.status} ${response.statusText || ""}`.trim());
     }
 
     const text = await response.text();
 
     if(!text.trim()){
-      throw new Error("Respuesta vacía");
+      throw new Error("La lista M3U está vacía");
     }
 
     return text;
+
+  }catch(err){
+    if(err?.name === "AbortError"){
+      throw new Error("Tiempo de espera agotado al obtener la lista");
+    }
+    throw err;
   }finally{
     clearTimeout(timer);
   }
@@ -440,7 +480,9 @@ function isM3U(text){
 
   return (
     sample.startsWith("#EXTM3U") ||
-    sample.includes("#EXTINF")
+    sample.includes("#EXTINF") ||
+    /(?:^|\n)\s*(?:acestream:\/\/)?[a-f0-9]{40}\s*(?:\n|$)/i.test(sample) ||
+    /acestream:\/\/[a-f0-9]{40}/i.test(sample)
   );
 }
 
@@ -481,13 +523,16 @@ async function loadChannels(){
   channels = [];
   categories = [];
 
-  showLoadStatus("⏳ <strong>Buscando la lista de canales...</strong><br><small>Probando los gateways disponibles.</small>", "info");
+  showLoadStatus("⏳ <strong>Buscando la lista de canales...</strong><br><small>Obteniendo la lista directamente desde IPNS/IPFS con verificación.</small>", "info");
 
   const errors = [];
 
   for(const url of LISTA_URLS){
     try{
       console.log("🔎 Probando lista M3U:", url);
+      if(url.startsWith("ipns://")){
+        console.log("🌐 Usando @helia/verified-fetch para resolver IPNS directamente en el navegador.");
+      }
 
       const text = await fetchWithTimeout(url);
 
@@ -522,7 +567,7 @@ async function loadChannels(){
 
       showLoadStatus(
         `✅ <strong>${channels.length} canales cargados correctamente</strong><br>
-         <small>Fuente: ${new URL(url).hostname}</small>`,
+         <small>Fuente: ${url.startsWith("ipns://") ? "IPNS/IPFS verificado" : new URL(url).hostname}</small>`,
         "ok"
       );
 
@@ -550,7 +595,7 @@ async function loadChannels(){
 
   const details = errors.map(e =>
     `<div style="text-align:left;margin:6px 0">
-      <strong>${new URL(e.url).hostname}</strong>: ${e.error}
+      <strong>${e.url.startsWith("ipns://") ? "IPNS/IPFS" : new URL(e.url).hostname}</strong>: ${e.error}
     </div>`
   ).join("");
 
